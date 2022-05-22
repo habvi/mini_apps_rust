@@ -4,6 +4,7 @@ use serde::Serialize;
 use std::fs::{File, OpenOptions};
 use std::path::PathBuf;
 use std::io::{Result, Seek, SeekFrom};
+use std::fmt;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Task {
@@ -96,4 +97,11 @@ pub fn list_tasks(journal_path: PathBuf) -> Result<()> {
     }
 
     Ok(())
+}
+
+impl fmt::Display for Task {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let created_at = self.created_at.with_timezone(&Local).fotmat("%F %H:%M");
+        write!(f, "{:<50} [{}]", self.text, created_at)
+    }
 }
