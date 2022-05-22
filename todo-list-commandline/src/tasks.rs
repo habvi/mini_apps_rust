@@ -45,7 +45,7 @@ pub fn add_task(journal_path: PathBuf, task: Task) -> Result<()> {
         .open(journal_path)?;
 
     // Consume the file's contents as a Vec of tasks.
-    let mut tasks: Vec<Task> = collect_tasks(&file);
+    let mut tasks: Vec<Task> = collect_tasks(&file)?;
 
     // Write the modified task list back into the file.
     tasks.push(task);
@@ -61,7 +61,7 @@ pub fn complete_task(journal_path: PathBuf, task_position: usize) -> Result<()> 
         .open(journal_path)?;
 
     // Consume the file's contents as a Vec of tasks.
-    let tasks: Vec<Task> = collect_tasks(&file);
+    let tasks: Vec<Task> = collect_tasks(&file)?;
 
     // Try to remove the task.
     if task_position == 0 || task_position > task.len() {
@@ -76,5 +76,24 @@ pub fn complete_task(journal_path: PathBuf, task_position: usize) -> Result<()> 
 }
 
 pub fn list_tasks(journal_path: PathBuf) -> Result<()> {
+    // Open the file.
+    let file = OpenOptions::new()
+        .read(true)
+        .open(journal_path)?;
 
+    // Parse the file and collect the tasks.
+    let tasks: Vec<Task> = collect_tasks(&file)?;
+
+    // Enumerate and display tasks, if any.
+    if task.is_empty() {
+        println!("Task list is empty..!");
+    } else {
+        let mut order: u32 = 1;
+        for task in tasks {
+            println!("{}: {}", order, task);
+            order += 1;
+        }
+    }
+
+    Ok(())
 }
