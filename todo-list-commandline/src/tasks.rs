@@ -1,9 +1,9 @@
-use chrono::{serde::ts_seconds, DateTime, Local};
+use chrono::{serde::ts_seconds, DateTime, Local, Utc};
 use serde::Deserialize;
 use serde::Serialize;
 use std::fs::{File, OpenOptions};
 use std::path::PathBuf;
-use std::io::{Result, Seek, SeekFrom};
+use std::io::{Result, Error, ErrorKind, Seek, SeekFrom};
 use std::fmt;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -11,19 +11,19 @@ pub struct Task {
     pub text: String,
 
     #[serde(with = "ts_seconds")]
-    pub created_at: DateTime<Local>
+    pub created_at: DateTime<Utc>
 }
 
 impl Task {
     pub fn new(text: String) -> Task {
-        let created_at: DateTime<Local> = Local::now();
+        let created_at: DateTime<Utc> = Utc::now();
         Task { text, created_at }
     }
 }
 
 fn collect_tasks(mut file: &File) -> Result<Vec<Task>> {
     // Rewind the file before.
-    file.seen(SeekFrom::Start(0))?;
+    file.seek(SeekFrom::Start(0))?;
 
     // Open the file.
     let tasks = match serde_json::from_reader(file) {
@@ -33,13 +33,13 @@ fn collect_tasks(mut file: &File) -> Result<Vec<Task>> {
     };
 
     // Rewind the file after.
-    file.seen(SeekFrom::Start(0))?;
+    file.seek(SeekFrom::Start(0))?;
     Ok(tasks)
 }
 
 pub fn add_task(journal_path: PathBuf, task: Task) -> Result<()> {
     // Open the file.
-    let mut file = OpenOptions::new()
+    let file = OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
@@ -62,10 +62,10 @@ pub fn complete_task(journal_path: PathBuf, task_position: usize) -> Result<()> 
         .open(journal_path)?;
 
     // Consume the file's contents as a Vec of tasks.
-    let tasks: Vec<Task> = collect_tasks(&file)?;
+    let mut tasks: Vec<Task> = collect_tasks(&file)?;
 
     // Try to remove the task.
-    if task_position == 0 || task_position > task.len() {
+    if task_position == 0 || task_position > tasks.len() {
         return Err(Error::new(ErrorKind::InvalidInput, "Invalid Task ID"));
     }
     tasks.remove(task_position - 1);
@@ -86,7 +86,7 @@ pub fn list_tasks(journal_path: PathBuf) -> Result<()> {
     let tasks: Vec<Task> = collect_tasks(&file)?;
 
     // Enumerate and display tasks, if any.
-    if task.is_empty() {
+    if tasks.is_empty() {
         println!("Task list is empty..!");
     } else {
         let mut order: u32 = 1;
@@ -101,7 +101,7 @@ pub fn list_tasks(journal_path: PathBuf) -> Result<()> {
 
 impl fmt::Display for Task {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let created_at = self.created_at.with_timezone(&Local).fotmat("%F %H:%M");
+        let created_at = self.created_at.with_timezone(&Local).format("%F %H:%M");
         write!(f, "{:<50} [{}]", self.text, created_at)
     }
 }
