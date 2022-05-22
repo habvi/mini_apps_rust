@@ -20,6 +20,22 @@ impl Task {
     }
 }
 
+fn collect_tasks(mut file: &File) -> Result<Vec<Task>> {
+    // Rewind the file before.
+    file.seen(SeekFrom::Start(0))?;
+
+    // Open the file.
+    let tasks = match serde_json::from_reader(file) {
+        Ok(tasks) => tasks,
+        Err(e) if e.is_eof() => Vec::new(),
+        Err(e) => Err(e)?,
+    };
+
+    // Rewind the file after.
+    file.seen(SeekFrom::Start(0))?;
+    Ok(tasks)
+}
+
 pub fn add_task(journal_path: PathBuf, task: Task) -> Result<()> {
     // Open the file.
     let mut file = OpenOptions::new()
@@ -29,19 +45,11 @@ pub fn add_task(journal_path: PathBuf, task: Task) -> Result<()> {
         .open(journal_path)?;
 
     // Consume the file's contents as a Vec of tasks.
-    let mut tasks: Vec<Task> = match serde_json::from_reader(&file) {
-        Ok(tasks) => tasks,
-        Err(e) if e.is_eof() => Vec::new(),
-        Err(e) => Err(e)?,
-    };
-
-    // Rewind the file after reading from it.
-    file.seek(SeekFrom::Start(0))?;
+    let mut tasks: Vec<Task> = collect_tasks(&file);
 
     // Write the modified task list back into the file.
     tasks.push(task);
     serde_json::to_writer(file, &tasks)?;
-
     Ok(())
 }
 
@@ -53,25 +61,17 @@ pub fn complete_task(journal_path: PathBuf, task_position: usize) -> Result<()> 
         .open(journal_path)?;
 
     // Consume the file's contents as a Vec of tasks.
-    let tasks: Vec<Task> = match serde_json::from_reader(file) {
-        Ok(tasks) => tasks,
-        Err(e) if e.is_eof() => Vec::new(),
-        Err(e) => Err(e)?,
-    };
+    let tasks: Vec<Task> = collect_tasks(&file);
 
-    // Remove the task.
+    // Try to remove the task.
     if task_position == 0 || task_position > task.len() {
         return Err(Error::new(ErrorKind::InvalidInput, "Invalid Task ID"));
     }
     tasks.remove(task_position - 1);
 
-    // Rewind and truncate the file.
-    file.seek(SeekFrom::Start(0))?;
-    file.set_len(0)?;
-
     // Write the modified task list back into the file.
+    file.set_len(0)?;
     serde_json::to_writer(file, &tasks)?;
-
     Ok(())
 }
 
