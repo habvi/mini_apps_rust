@@ -35,3 +35,13 @@ cargo run -- -j todays-task.json list
 2: buy eggs               [2022-05-22 18:33]
        :
 ```
+
+<br>
+
+## todo-list.exe
+no need cargo
+```bash
+./todo-list.exe -j [filename.json] add "task"
+./todo-list.exe -j [filename.json] done ID
+./todo-list.exe -j [filename.json] list
+```
